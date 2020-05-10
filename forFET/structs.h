@@ -36,6 +36,7 @@ struct identifier{		//Identifier Structure : Linked List used to store any gener
 };
 
 struct transition{		//Transition Structure : Represents location transitions
+	int firstMatchTransition;	//True if the transition is added with first match semantics, false otherwise
 	struct condition* when;	//Guard Condition
 	char sync[MAX_STR_LENGTH];		//Synchronization Labels
 	struct condition* reset;//Resets on Transition
@@ -101,10 +102,12 @@ struct PORV{				//List of PORV's conjuncted together
 
 struct eventType{
 	int type;			//Event Type - posedge(1), negedge(2), either(0)
+	int firstMatch;		//Mark Event as First Match
 	struct PORV* porv;		//Event Condition
 };
 
 struct PORVExpression{
+	int firstMatch;
 	struct PORV* conjunct;		//List of PORVs conjuncted together
 	struct PORVExpression* next;	//Next PORVConjunct in the Disjunction
 };
@@ -207,6 +210,7 @@ char* operatorMap(int op);
 struct condition* createCondition(char *LHS, char* RHS, int op);
 struct condition* addConditionToList(struct condition* root, struct condition* cond);
 struct condition* addToConditionList(struct condition* root, char *LHS, char* RHS, int op);
+int countIdentifiers(struct identifier* list);
 struct condition* duplicateConditionList(struct condition* root);
 struct condition* createIdentityResets(struct identifier* root);
 void printCondition(struct condition* cond);
@@ -339,6 +343,13 @@ void readFeatureList(struct identifier** list,char* modelName, char* libPath);
 int displayFeaturelList(struct identifier* list);
 int requestFeatureChoice(int count);
 char* getFeatureName(int id, struct identifier* list);
+void updateStringParam(char* original, char* substr, double value);
+void updatePORVParam(struct PORV* porvStruct, char* param, double value);
+void updateFeatureParams(struct feature* featureStmt, double** values, int count);
+char* replaceStrWithStr(char const * const original, char const * const pattern, char const * const replacement);
+int requestFeatureParamChoice(int count);
+int printFeatureParamList(struct identifier* params);
+void getParamValueFromIO(struct feature* featureStmt);
 char* strToUpper(char* str);
 struct value* addToValues(struct value* root, double encL, double encR, double timeL, double timeR);
 void freeValueList(struct value* root);

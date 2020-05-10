@@ -97,6 +97,17 @@
 				strcpy(yylval.string,yytext);
 				return FSTATE;
 			}
+
+"first_match"			{	
+				#ifdef LEX_DEBUG_ON
+				printf("lex: first_match\n");
+				#endif
+				charPos+=yyleng;
+				strcat(line,yytext);
+				strcpy(yylval.string,yytext);
+				return FIRSTMATCH;
+			}
+			
 "|->"			{	
 				#ifdef LEX_DEBUG_ON
 				printf("lex: |->\n");

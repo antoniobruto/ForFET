@@ -507,6 +507,16 @@ int getIdentifierID(struct identifier* list, char *name){
 	return 0;
 }
 
+int countIdentifiers(struct identifier* list){
+	struct identifier* temp = list;
+	int count=0;
+	while(temp!=NULL){
+		count++;
+		temp=temp->next;
+	}	
+	return count;
+}
+
 struct identifier* duplicateIdentifierList(struct identifier* root){
 	#ifdef DEBUG_ON 
 	printf("[duplicateIdentifierList] STARTED\n");
@@ -739,32 +749,31 @@ struct transition* duplicateTransitionList(struct transition* root){
  * Checks if a location has any transition out of the location with the specified level
  */
 int locHasTransAtLevel(struct location* loc, int level){
-        #ifdef DEBUG_ON 
-        printf("[locHasTransAtLevel] STARTED\n");
-        #endif
-        
-        if(loc){
-                struct transition* trans = loc->transitions;
-                char levelStr[] = "level";
-                char valStr[MAX_STR_LENGTH];
-                sprintf(valStr,"%d",level);
-                
-                while(trans){
-                        if(inConditionList(trans->when,levelStr,valStr)){
-                                #ifdef DEBUG_ON 
-                                printf("[locHasTransAtLevel] ENDED\n");
-                                #endif
-                                return 1;
-                        }
-                        trans = trans->next;
-                }
-        }
-        
-        return 0;
-        
-        #ifdef DEBUG_ON 
-        printf("[locHasTransAtLevel] ENDED\n");
-        #endif
+	#ifdef DEBUG_ON 
+	printf("[locHasTransAtLevel] STARTED\n");
+	#endif
+
+	if(loc){
+		struct transition* trans = loc->transitions;
+		char levelStr[] = "level";
+		char valStr[MAX_STR_LENGTH];
+		sprintf(valStr,"%d",level);
+
+		while(trans){
+			if(inConditionList(trans->when,levelStr,valStr)){
+				#ifdef DEBUG_ON 
+					printf("[locHasTransAtLevel] ENDED\n");
+				#endif
+				return 1;
+			}
+			trans = trans->next;
+		}
+	}
+	return 0;
+
+	#ifdef DEBUG_ON 
+	printf("[locHasTransAtLevel] ENDED\n");
+	#endif
 }
 
 
@@ -1939,6 +1948,7 @@ struct eventType* createEvent(int type, struct PORV* porv){
 	
 	event->type = type;
 	event->porv = porv;
+	event->firstMatch = 0;
 	#ifdef DEBUG_ON 
 		printf("[createEvent] CRETED NODE\n");
 	#endif
@@ -2038,7 +2048,7 @@ struct PORVExpression* createPORVExpression(struct PORV* conjunct){
 	printf("[createPORVExpression] STARTED\n");
 	#endif
 	struct PORVExpression* porvExpr = (struct PORVExpression*)malloc(sizeof(struct PORVExpression));
-	
+	porvExpr->firstMatch=0;
 	porvExpr->conjunct = conjunct;
 	porvExpr->next = NULL;
 	#ifdef DEBUG_ON 
@@ -2312,9 +2322,9 @@ void printAssignmentList(struct condition* assignments){
 
 void printPORV(struct PORV* porv){
 	if(porv!=NULL){
-		printf("%d ",porv->id);
+		//printf("%d ",porv->id);
 		//printFeatureCondition(porv->porv);
-		//printf(" %s %s %s ",porv->porv->LHS,featureOperatorMap(porv->porv->op),porv->porv->RHS);	
+		printf(" %s %s %s ",porv->porv->LHS,featureOperatorMap(porv->porv->op),porv->porv->RHS);	
 	}
 }
 
@@ -2394,7 +2404,7 @@ void printTimeDelay(struct timeDelay* delay){
 }
 
 void printSequenceExpr(struct sequenceExpr* seq){
-	printf("\t\t");
+	printf("\t");
 	if(seq!=NULL){
 		while(seq!=NULL){
 			//Print Temporal Seperation
@@ -2416,11 +2426,11 @@ void printSequenceExpr(struct sequenceExpr* seq){
 }
 
 void printFeatureDefinition(struct featureDef* def){
-	printf("\tbegin\n");
+	printf("begin\n");
 	
 	//Print Local Variables
 	if(def->localVars!=NULL){
-		printf("\t\tvar ");
+		printf("\tvar ");
 		struct identifier* var = def->localVars;
 		while(var->next!=NULL){
 			printf("%s , ",var->name);
@@ -2444,7 +2454,7 @@ void printFeatureDefinition(struct featureDef* def){
 	
 	printf(";\n");
 	
-	printf("\tend\n");
+	printf("end\n");
 }
 
 void printFeature(struct feature* featureStmt){
@@ -2461,9 +2471,9 @@ void printFeature(struct feature* featureStmt){
 					printf("%s , ",param->name);
 					param = param->next;
 				}
-				printf("%s ) ;\n",param->name);
+				printf("%s ) ;",param->name);
 			}
-			
+			printf("\n");
 			//Print Feature Body
 			if(featureStmt->def!=NULL){
 				printFeatureDefinition(featureStmt->def);
@@ -2478,6 +2488,197 @@ void printFeature(struct feature* featureStmt){
 		}
 	}
 	printf("\n\n---------------------------------------------------------------------\n\n");
+}
+
+int requestFeatureParamChoice(int count){
+	int id=0;
+	
+	do{
+		if(id!=0){
+			printf("Incorrect parameter ID entered.\n\n");
+		}
+		//printf("\n\n--------------------------------------------------------------------\n");
+		printf("Enter the ID of the parameter you wish to edit.\n");
+		printf("If you are satisfied with the value list enter 0.\n");
+		printf("Your choice: ");
+		scanf("%d",&id);
+	} while(!(id>=0 & id<=count));
+	printf("\n--------------------------------------------------------------------------\n");
+	return id;
+}
+
+int printFeatureParamList(struct identifier* params){
+	if(params){
+		int id = 1;
+		while(params){
+			printf("%d. %s\n",id++,params->name);
+			params = params->next;
+		}
+		id--;
+		return id;
+	}
+	return 0;
+}
+
+void updateFeatureParamList(double** paramValues, int id){
+	if(paramValues[id-1]!=NULL){
+		printf("Present Parameter Value: ");
+	} else {
+		paramValues[id-1] = (double*)malloc(sizeof(double));
+	}
+	
+	printf("Suggested Value: ");
+	scanf("%lf",paramValues[id-1]);
+	
+	if(runFile) fprintf(runFile,"%lf\n",*paramValues[id-1]);
+	printf("Updated Parameter Value: %lf\n",*paramValues[id-1]); 
+}
+
+void getParamValueFromIO(struct feature* featureStmt){
+	if(featureStmt){
+		printFeature(featureStmt);
+		
+		if(featureStmt->params){
+			printf("Update feature parameters:\n");
+			int count = countIdentifiers(featureStmt->params);
+			int param_id = 0;
+			int i=0; int flag = 0;
+			double* paramValues[count];
+			bzero(paramValues,sizeof(double*)*count);
+			struct identifier* params = NULL;
+			do{	
+				params = featureStmt->params;
+				for(i=0;i<count;i++){
+					if(paramValues[i]!=NULL){
+						if(flag==0){
+							printf("Parameters set:\n");
+							flag = 1;
+						}
+						printf("%s = %lf\n",params->name,*paramValues[i]);
+					}
+					params = params->next;
+				}
+			
+				param_id = requestFeatureParamChoice( printFeatureParamList(featureStmt->params) );
+				if(runFile) fprintf(runFile,"%d\n",param_id);
+				if(param_id == 0){
+					for(i=0;i<count;i++){
+						if(paramValues[i]==NULL){
+							flag = 0;
+						}
+					}
+					if(flag == 1)
+						break;
+					else {
+						printf("Not all parameter values are set. Please ensure that all parameters are initialized.\n");
+					}
+				} else {
+					updateFeatureParamList(paramValues,param_id);
+				}
+			} while(1);
+			updateFeatureParams(featureStmt,paramValues,count);
+			printFeature(featureStmt);
+		} else {
+			printf("No feature parameters. Proceeding.\n");
+		}
+	}
+}
+
+char* replaceStrWithStr(
+    char const * const original, 
+    char const * const pattern, 
+    char const * const replacement
+) {
+	size_t const replen = strlen(replacement);
+	size_t const patlen = strlen(pattern);
+	size_t const orilen = strlen(original);
+
+	size_t patcnt = 0;
+	const char * oriptr;
+	const char * patloc;
+
+	// find how many times the pattern occurs in the original string
+	for (oriptr = original; patloc = strstr(oriptr, pattern); oriptr = patloc + patlen){
+		patcnt++;
+	}
+
+	// allocate memory for the new string
+	size_t const retlen = orilen + patcnt * (replen - patlen);
+	if(retlen>MAX_STR_LENGTH){
+		printf("ERROR: Parameter cannot be replaced in the feature definition\n");
+		exit(0);
+	}
+	
+	char * const returned = (char *) malloc( sizeof(char) * (retlen + 1) );
+	
+	// copy the original string, 
+	// replacing all the instances of the pattern
+	char* retptr = returned;
+	for (oriptr = original; patloc = strstr(oriptr, pattern); oriptr = patloc + patlen)
+	{
+		size_t const skplen = patloc - oriptr;
+		// copy the section until the occurence of the pattern
+		strncpy(retptr, oriptr, skplen);
+		retptr += skplen;
+		// copy the replacement 
+		strncpy(retptr, replacement, replen);
+		retptr += replen;
+	}
+	// copy the rest of the string.
+	strcpy(retptr, oriptr);
+	
+	return returned;
+}
+
+void updateStringParam(char* original, char* substr, double value){
+	if(original && substr){
+		char replacementString[MAX_STR_LENGTH];
+		sprintf(replacementString,"%lf",value);
+		
+		char* updatedString = replaceStrWithStr(original,substr,replacementString);
+		strcpy(original,updatedString);
+		//free(updatedString);
+	}
+}
+
+void updatePORVParam(struct PORV* porvStruct, char* param, double value){
+	if(porvStruct){
+		while(porvStruct){
+			struct condition* cond = porvStruct->porv;
+			updateStringParam(cond->LHS,param,value);
+			updateStringParam(cond->RHS,param,value);
+			porvStruct = porvStruct->next;
+		}
+	}
+}
+
+void updateFeatureParams(struct feature* featureStmt, double** values, int count){
+	if(count>0 && featureStmt && values){
+		//Assuming values are all NON-NULL
+		struct sequenceExpr* seq = featureStmt->def->seq;
+		while(seq){
+			int i=0;
+			struct identifier* params = featureStmt->params;
+			while(params){
+				char* paramName = params->name;
+				
+				//Update Event
+				updateStringParam(seq->expr->event->porv->porv->LHS,paramName,*values[i]);
+				updateStringParam(seq->expr->event->porv->porv->RHS,paramName,*values[i]);
+				
+				//Update DNF
+				struct PORVExpression* dnf = seq->expr->dnf;
+				while(dnf){
+					updatePORVParam(dnf->conjunct,paramName,*values[i]);
+					dnf=dnf->next;
+				}
+				i++;
+				params = params->next;
+			}
+			
+			seq = seq->next;
+		}
+	}
 }
 
 char* phOperatorMap(int op){	
@@ -5327,15 +5528,19 @@ void tuneForTemporalProperties(struct phaver* HA){
 			printf("WHOA!!! I should not be here in any temporal dimension.\n");
 		#endif	
 		
-		char temporal[5];
+		char temporal[MAX_STR_LENGTH];
 		sprintf(temporal,"time");
 		struct identifier* time = createIdentifier(temporal);
+		
+		sprintf(temporal,"localTime");
+		struct identifier* localTime = createIdentifier(temporal);
 		
 		#ifdef DEBUG_ON
 		printf("[tuneForTemporalProperties] Adding TIME as a control variable\n");
 		#endif	
 		
 		addLocalVariable(HA,time,0,1);
+		addLocalVariable(HA,localTime,0,1);
 		
 		#ifdef DEBUG_ON
 		printf("[tuneForTemporalProperties] Added TIME\n");
@@ -5652,18 +5857,18 @@ struct condition* generateTemporalGuards(struct sequenceExpr* seq){
 				case 0: //Finite lower and upper bounds;
 					sprintf(lower,"%f",seq->delay->lower);
 					sprintf(upper,"%f",seq->delay->upper);
-					temporalGuards = addToConditionList(temporalGuards,lower,"time",1);
-					temporalGuards = addToConditionList(temporalGuards,"time",upper,1);
+					temporalGuards = addToConditionList(temporalGuards,lower,"localTime",1);
+					temporalGuards = addToConditionList(temporalGuards,"localTime",upper,1);
 					break;
 					
 				case 1: //Unconstrained upper bounds : upper == 0
 					sprintf(lower,"%f",seq->delay->lower);
-					temporalGuards = addToConditionList(temporalGuards,lower,"time",1);
+					temporalGuards = addToConditionList(temporalGuards,lower,"localTime",1);
 					break;
 					
 				case 2: //Exact Finite Time
 					sprintf(lower,"%f",seq->delay->lower);
-					temporalGuards = addToConditionList(temporalGuards,lower,"time",0);
+					temporalGuards = addToConditionList(temporalGuards,lower,"localTime",0);
 					break;
 					
 				default: printf("[generateTemporalGuards] ERROR\n");exit(0);
@@ -6090,23 +6295,21 @@ struct phaver* levelSequence(struct phaver* H, struct feature* F, char* syncLabe
 	#endif
 	
 	if(H!=NULL && F!=NULL){
-		//Initial states all start with level == 0 
+		//Initial all states start with level == 0 
 		int id = 0;
 		int nextId = 0;	
 		char* strID = (char*)malloc(sizeof(char)*MAX_STR_LENGTH);
 		
-		struct sequenceExpr* seq_expr = F->def->seq;
-		//expr_count <--- Number of subsequences in the sequence expression
-		int expr_count = countSequenceExpressions(seq_expr);
+		struct sequenceExpr* seq_expr = F->def->seq;//seq_expr <--- feature sequence expression
+		
+		int expr_count = countSequenceExpressions(seq_expr);//expr_count <--- Number of subsequences in the sequence expression
 		
 		#ifdef DEBUG_ON 
 		printf("[levelSequence] Sequence Expression Count = [%d]\n",expr_count);
-		#endif
-		
 		//Now we mark transitions that are of the original automaton i.e. level 0
-		#ifdef DEBUG_ON 
 		printf("[levelSequence] Marking Transitions of level 0 as ORIGINAL\n");
 		#endif
+		
 		struct location* locIterator = H->ha->locations;
 		struct transition* transIterator = NULL;
 		
@@ -6134,7 +6337,14 @@ struct phaver* levelSequence(struct phaver* H, struct feature* F, char* syncLabe
 		//Get the list of Sequence Expressions - seq_expr
 		seq_expr = F->def->seq;
 		
-		//For Each Expression create a level
+		/*
+		 * FOR EACH SUB-SEQUENCE EXPRESSION : 
+		 * 	1. temporalGuards : common guards for temporal constraints
+		 * 	2. Check if there is an event - create common eventGuards and set event type (eType)
+		 * 	3. temporalResets : Generate temporal resets.
+		 * 	4. levelGuards and levelResets : Generate common level guards and resets.
+		 * 	5. Iterate through all locations and modify transitions associated with the location.
+		 */
 		while(seq_expr!=NULL){
 			
 			//id = Position of the subexpression
@@ -6148,12 +6358,27 @@ struct phaver* levelSequence(struct phaver* H, struct feature* F, char* syncLabe
 			int stateEvent = 0; // Either these is no event associated with the subexpression or the event isn't over the discrete state variable.
 			char* eventContext = NULL;
 			struct condition* eventGuards = NULL;
+			
+			struct PORVExpression* firstMatchExprs = NULL;
+			struct PORVExpression* nonFirstMatchExprs = NULL;
+			struct PORVExpression* dnf = seq_expr->expr->dnf;
+			
+			while(dnf){
+				struct PORVExpression* conjunctTerm = createPORVExpression(duplicatePORVList(dnf->conjunct));
+				if(dnf->firstMatch){
+					firstMatchExprs = addPORVExpressionToEOfList(firstMatchExprs,conjunctTerm);
+				} else {
+					nonFirstMatchExprs = addPORVExpressionToEOfList(nonFirstMatchExprs,conjunctTerm);
+				}
+				dnf=dnf->next;
+			}
+			
 			if(seq_expr->expr->event!=NULL){
 				/* 
 				 * Check Event Type
 				 * Check on which variable the PORV is defined (This assumes each PORV has one variable on the LHS)
 				 *
-				 * If it is a state even all transitions 
+				 * If it is a state event, then all transitions 
 				 * at this level to the next level entering 
 				 * or leaving the state have to be treated 
 				 * appropriately.
@@ -6186,6 +6411,8 @@ struct phaver* levelSequence(struct phaver* H, struct feature* F, char* syncLabe
 			
 			if(H->temporal==1){
 				temporalResets = addToConditionList(temporalResets,"time'","time",2);
+				sprintf(strID,"%d",0);
+				temporalResets = addToConditionList(temporalResets,"localTime'",strID,2);
 			}
 			
 			struct condition* assignmentResets = NULL;//seq_expr->assignments;
@@ -6198,6 +6425,9 @@ struct phaver* levelSequence(struct phaver* H, struct feature* F, char* syncLabe
 			 * 
 			 * If the location satisfies the subexpression, transitions
 			 * are added at this location to the next level.
+			 * 
+			 * For locations satisfying and having non-first match constraints
+			 * transitions are added to remain within the level.
 			 * 
 			 * For location p, if there is an event applicable on q, then
 			 * there are the following three possibilities:
@@ -6226,10 +6456,17 @@ struct phaver* levelSequence(struct phaver* H, struct feature* F, char* syncLabe
 				printf("[levelSequence] [EXPR-MATCH]Location [%s] at Level [%d]\n",locIterator->name,id);
 				#endif
 				
-				struct PORVExpression* dnf = seq_expr->expr->dnf;
+				struct PORVExpression* dnf = seq_expr->expr->dnf;				
 				int dnfID = 0;
 				while(dnf!=NULL){
-					//For each conjunct create one transition
+					/*
+					 * For each conjunct create one transition:
+					 * 1. Get the locationContext.
+					 * 2. The conjunct is applicable at this location if
+					 * 		A. There is no location context.
+					 * 		B. There is a location context, and 
+					 * 		   the location context is of this location.
+					 */
 					dnfID++;
 					struct transition* trans = NULL;
 					
@@ -6253,10 +6490,8 @@ struct phaver* levelSequence(struct phaver* H, struct feature* F, char* syncLabe
 						}
 					}
 					
-					
 					printf("%d\n",(context!=NULL && (locIterator->originalName!=NULL?(strcmp(context,locIterator->originalName)==0):(strcmp(context,locIterator->name)==0))));
 					printf("NAME = %s\n",locIterator->name);
-					
 					#endif
 					
 					
@@ -6268,10 +6503,16 @@ struct phaver* levelSequence(struct phaver* H, struct feature* F, char* syncLabe
 						fflush(stdout);
 						#endif
 						
-						//Generate the Guards
+						/*
+						 * Generate Guards:
+						 * 	1. Common Temporal Guards
+						 * 	2. Common Event Guards
+						 * 	3. Guards for the conjunct
+						 * 	4. Common Level Guards 
+						 */
 						struct condition* when = duplicateConditionList(temporalGuards);
 						
-						//Add event guards
+						//Add Event Guard
 						if(!stateEvent){
 							when = addConditionToList(when,duplicateConditionList(eventGuards));
 						}
@@ -6282,10 +6523,7 @@ struct phaver* levelSequence(struct phaver* H, struct feature* F, char* syncLabe
 						when = addConditionToList(when,conjunctGuards);
 						
 						//Add Level Guard
-						//if(id!=0)                                                        
 						when = addConditionToList(when,levelGuard);
-						//printf("CONDITIONS-HERE\n");
-						//printConditionList(when);
 						
 						/*
 						 * If there is a state Q based event, then on all transitions 
@@ -6309,7 +6547,7 @@ struct phaver* levelSequence(struct phaver* H, struct feature* F, char* syncLabe
 										posTrans->next = NULL;
 										posTrans->original = 0;
 										posTrans->when = addConditionToList(posTrans->when,duplicateConditionList(when));
-										removeConditionFromList(&posTrans->reset,"level");                                                                                       
+										removeConditionFromList(&posTrans->reset,"level");
 										posTrans->reset = addConditionToList(posTrans->reset,duplicateConditionList(levelResets));
 										
 										//Order Resets for assignments
@@ -6641,6 +6879,18 @@ struct phaver* levelSequence(struct phaver* H, struct feature* F, char* syncLabe
 				 * it is a non level 0 location then all transitions 
 				 * are retained at this level.
 				 */
+				
+				/*
+				 * Adding transitions at the same level:
+				 * 1. When the location satisfies the sub-expression (with or without context)
+				 * 		A. Transitions for firstmatch conjunct terms (negation of AND'ed firstmatch terms)
+				 * 		B. Transitions for non-firstmatch conjunct terms
+				 * 2. When the location does not satisfy the sub-expression
+				 * 		Copy all outgoing transitions for the location and add level guards
+				 * 		Location Context and Not satisfied.
+				 * 					OR
+				 * 		No location context and transitions exist at this level.
+				 */
 				if(seq_expr->expr->dnf!=NULL){//ADDED AS PART OF NO SPLIT change
 					dnf=seq_expr->expr->dnf;
 					
@@ -6649,7 +6899,20 @@ struct phaver* levelSequence(struct phaver* H, struct feature* F, char* syncLabe
 					#ifdef DEBUG_ON
 					printf("============>  CONTEXT = [%s]\n",context);
 					#endif
-					
+					/*
+					if(id!=0){ //Not Level 0
+						if(context!=NULL){ //There is a location context 
+							if(strcmp(context,locIterator->name)!=0){ 
+								//Location does not satisfy the context
+								
+								
+							} else {
+								//Location satisfies the context
+								
+							}
+							
+					}
+					*/
 					if(id!=0 && (stateEvent || (context!=NULL && strcmp(context,locIterator->name)!=0))){//ADDED AS PART OF NO SPLIT change
 						
 						/* Checking if any location with the same original 
@@ -6657,31 +6920,35 @@ struct phaver* levelSequence(struct phaver* H, struct feature* F, char* syncLabe
 						 */ 
 						//isTrueExpr(locIterator,seq_expr->expr)==1
 						int breakCycle = 0;
-						/*REMOVED AS PART OF NO SPLIT change
+						
+						/* REMOVED AS PART OF NO SPLIT change
 						 * if(locIterator->originalName!=NULL){//There are other locations to check
-						 *							struct location* locList = H->ha->locations;
-						 *							
-						 *							//While there are locations left and no location satisfies the subexpression
-						 *							while(locList!=NULL){
-						 *								//If the location was previously split
-						 *								if(locList->originalName!=NULL){
-						 *									//If the location is a sibling of the current location
-						 *									if(strcmp(locList->originalName,locIterator->originalName)==0 && strcmp(locList->name,locIterator-> name)!=0){
-						 *										//If the sibling is a final state for this level
-						 *										if(isTrueExpr(locList,seq_expr->expr)==1){
-						 *											breakCycle = 1;
-						 *											break;
-					}
-					}
-					}
-					locList = locList->next;
-					}
-					}*/
+						 *		struct location* locList = H->ha->locations;
+						 *					
+						 *		//While there are locations left and no location satisfies the subexpression
+						 *		while(locList!=NULL){
+						 *			//If the location was previously split
+						 *			if(locList->originalName!=NULL){
+						 *				//If the location is a sibling of the current location
+						 *				if(strcmp(locList->originalName,locIterator->originalName)==0 && strcmp(locList->name,locIterator-> name)!=0){
+						 *					//If the sibling is a final state for this level
+						 *					if(isTrueExpr(locList,seq_expr->expr)==1){
+						 *						breakCycle = 1;
+						 *						break;
+						 * 					}
+						 * 				}
+						 * 			}
+						 *			locList = locList->next;
+						 * 		}
+						 * }
+						 */
 						
 						/* 
 						 * Make a copy of each original transitions, and guard it 
 						 * with the level guard
 						 */
+						
+						//If location has no transitions from this location
 						if(locHasTransAtLevel(locIterator,id)==0){
 							if(breakCycle == 0){
 								struct transition* trans = locIterator->transitions;
@@ -6710,7 +6977,7 @@ struct phaver* levelSequence(struct phaver* H, struct feature* F, char* syncLabe
 					}
 				} else if(stateEvent) {
 					/* 
-					 * If the event is an @+(L) then a level change occurs on every location entering L and no normal transition is allowed at this level for those
+					 * If the event is an @+(L) then a level change occurs from every location having transitions entering L and no normal transition is allowed at this level for those locatios
 					 * If the event is an @-(L) then a level change is applicable on L only and normal transitions are allowed for others
 					 */
 					

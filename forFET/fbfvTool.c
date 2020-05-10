@@ -136,6 +136,8 @@ int main(int argc, char *argv[]) {
 			//printf("IN HERE-2\n");
 			sprintf(libPath,"lib");
 		}
+		
+		
 	
 		sprintf(workPath,"%s",getWorkPath(forFETConfig));
 		if(strlen(trim(workPath))>0){
@@ -314,6 +316,9 @@ int main(int argc, char *argv[]) {
 			#endif
 			
 			fclose(featurein);
+			
+			//Update Feature Parameters
+			getParamValueFromIO(sysFeature);
 			
 			id = createIdentifier(sysFeature->name);
 			addLocalVariable(HA,id,DBL_MIN,0);

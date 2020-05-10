@@ -1,5 +1,5 @@
 %{
-	//#define YACC_DEBUG_ON
+	#define YACC_DEBUG_ON
 	
 	#ifndef MAX_STR_LENGTH
 		#define MAX_STR_LENGTH 256
@@ -49,7 +49,7 @@
 %}
 
 //Lexical Tokens
-%token <string> FEATURE FBEGIN FEND FVAR FCOMPUTE FLEFT_SQR_BRKT FRIGHT_SQR_BRKT FOPENROUND FCLOSEROUND FCOMMA FATPOSEDGE FATNEGEDGE FATANYEDGE FINTIME FAND FOR FRATIONAL FARITHOP FTRUE FASSIGN FEQ FLEQ FGEQ FLT FGT FSEMICOLON FCOLON FANY FATOM FDOLLARTIME FSTATE;
+%token <string> FEATURE FBEGIN FEND FVAR FCOMPUTE FLEFT_SQR_BRKT FRIGHT_SQR_BRKT FOPENROUND FCLOSEROUND FCOMMA FATPOSEDGE FATNEGEDGE FATANYEDGE FINTIME FAND FOR FRATIONAL FARITHOP FTRUE FASSIGN FEQ FLEQ FGEQ FLT FGT FSEMICOLON FCOLON FANY FATOM FDOLLARTIME FSTATE FIRSTMATCH;
 
 //Start Production Rule
 %start featureSpec
@@ -105,6 +105,7 @@ featureSpec://struct feature*
 												$$ = createFeature($2,NULL,$4);
 												//printFeature($$);
 												sysFeature = $$;
+												
 												if(temporalFlag == 1){
 													tuneForTemporalProperties(HA);
 												}
@@ -385,19 +386,34 @@ PORVExprWrapper:
 	;
 
 PORVExpr:
-	BPORVconjunct				{	
+	BPORVconjunct		{	
 							#ifdef YACC_DEBUG_ON 
 								printf("PARSER: PORVExpr: BPORVconjunct\n");
 							#endif
 							$$ = createPORVExpression($1);
 							
 						}
-	| BPORVconjunct FOR PORVExpr		{	
+	| FIRSTMATCH BPORVconjunct {
+							#ifdef YACC_DEBUG_ON 
+								printf("PARSER: PORVExpr: FirstMatch BPORVconjunct\n");
+							#endif
+							$$ = createPORVExpression($2);
+							$$->firstMatch = 1;
+						}
+	| BPORVconjunct FOR PORVExpr {	
 							#ifdef YACC_DEBUG_ON 
 								printf("PARSER: PORVExpr: BPORVconjunct FOR PORVExpr\n");
 							#endif
 							struct PORVExpression* porvExpr = createPORVExpression($1);
 							$$ = addPORVExpressionToEOfList($3,porvExpr);	
+						}
+	| FIRSTMATCH BPORVconjunct FOR PORVExpr {	
+							#ifdef YACC_DEBUG_ON 
+								printf("PARSER: PORVExpr: BPORVconjunct FOR PORVExpr\n");
+							#endif
+							struct PORVExpression* porvExpr = createPORVExpression($2);
+							porvExpr->firstMatch = 1;
+							$$ = addPORVExpressionToEOfList($4,porvExpr);	
 						}
 	;
 
@@ -487,6 +503,15 @@ eventExpr:
 							#endif
 							
 							$$=createEvent($1,$3);
+							//$$=createCondition($1->name,F_dummy,-1);//strcpy($$,$1);
+						}
+	| FIRSTMATCH eventType FOPENROUND porv FCLOSEROUND	{
+							#ifdef YACC_DEBUG_ON 
+								printf("PARSER: eventExpr: eventType FOPENROUND porv FCLOSEROUND\n");
+							#endif
+							
+							$$=createEvent($2,$4);
+							$$->firstMatch = 1;
 							//$$=createCondition($1->name,F_dummy,-1);//strcpy($$,$1);
 						}
 	;
