@@ -1,5 +1,5 @@
 %{
-	#define YACC_DEBUG_ON
+	//#define YACC_DEBUG_ON
 	
 	#ifndef MAX_STR_LENGTH
 		#define MAX_STR_LENGTH 256
