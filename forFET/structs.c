@@ -6729,7 +6729,7 @@ struct phaver* levelSequence(struct phaver* H, struct feature* F, char* syncLabe
 									when = addConditionToList(when,duplicateConditionList(levelGuard));
 									
 									posTrans->when = addConditionToList(posTrans->when,duplicateConditionList(when));
-									removeConditionFromList(&posTrans->reset,"level");                                                                                       
+									removeConditionFromList(&posTrans->reset,"level");
 									posTrans->reset = addConditionToList(posTrans->reset,duplicateConditionList(levelResets));
 									
 									//Order Resets for assignments
@@ -6867,13 +6867,6 @@ struct phaver* levelSequence(struct phaver* H, struct feature* F, char* syncLabe
 					}
 				}
 				
-				//}//REMOVED AS PART OF NO SPLIT change
-				
-				//FROM THE IF!!!!!!!!!!!!!!!!!!!!!!!
-				//else if(id!=0){ //REMOVED AS PART OF NO SPLIT change
-				//printf(	"dnf = %p\n",dnf);
-				
-				
 				/*
 				 * If the Location Does Not Satisfy the Expression and 
 				 * it is a non level 0 location then all transitions 
@@ -6891,68 +6884,46 @@ struct phaver* levelSequence(struct phaver* H, struct feature* F, char* syncLabe
 				 * 					OR
 				 * 		No location context and transitions exist at this level.
 				 */
-				if(seq_expr->expr->dnf!=NULL){//ADDED AS PART OF NO SPLIT change
-					dnf=seq_expr->expr->dnf;
-					
-					char* context = getLocationContext(dnf->conjunct);
-					
-					#ifdef DEBUG_ON
-					printf("============>  CONTEXT = [%s]\n",context);
-					#endif
-					/*
-					if(id!=0){ //Not Level 0
-						if(context!=NULL){ //There is a location context 
-							if(strcmp(context,locIterator->name)!=0){ 
-								//Location does not satisfy the context
-								
-								
-							} else {
-								//Location satisfies the context
-								
+				
+				int breakCycle = 0;
+				if(id!=0){
+					if(locHasTransAtLevel(locIterator,id)==0){
+						//If location has no transitions at this level
+						if(breakCycle == 0){
+							struct transition* trans = locIterator->transitions;
+							//For each location P not satisfying Expr
+							while(trans!=NULL){
+								//printf("trans->original = %d\n",(int)trans->original);
+								if((int)(trans->original)==1){
+									//Make a copy of each original Transition with level guard
+									struct transition *newTrans = NULL;
+									newTrans = addToTransitionList(newTrans,duplicateConditionList(trans->when),trans->sync,duplicateConditionList(trans->reset),trans->gotoLoc);
+									newTrans->next = NULL;
+									
+									//Add guard level == id
+									newTrans->when = addConditionToList(newTrans->when,levelGuard);
+									
+									//Add transition to List of Transition
+									locIterator->transitions = addTransitionToList(locIterator->transitions, newTrans);	
+									//end of IF
+								}
+								trans = trans->next;
+								//end of transition WHILE
 							}
+						}
+					} else {	
+						/*
+						* Location has transitions at this level
+						* Add transitions for non-first match components
+						* 1. Event
+						* 2. Non-First-Match DNF
+						*/
+						if(seq_expr->expr->event==NULL || (seq_expr->expr->event->firstMatch == 0) ){
+							//No event OR not a first-match event
+							if(seq_expr->expr->dnf && nonFirstMatchExprs){
+								struct PORVExpression* temp = nonFirstMatchExprs;
 							
-					}
-					*/
-					if(id!=0 && (stateEvent || (context!=NULL && strcmp(context,locIterator->name)!=0))){//ADDED AS PART OF NO SPLIT change
-						
-						/* Checking if any location with the same original 
-						 * Name satisfies the sequence expression (to eliminate cycles)
-						 */ 
-						//isTrueExpr(locIterator,seq_expr->expr)==1
-						int breakCycle = 0;
-						
-						/* REMOVED AS PART OF NO SPLIT change
-						 * if(locIterator->originalName!=NULL){//There are other locations to check
-						 *		struct location* locList = H->ha->locations;
-						 *					
-						 *		//While there are locations left and no location satisfies the subexpression
-						 *		while(locList!=NULL){
-						 *			//If the location was previously split
-						 *			if(locList->originalName!=NULL){
-						 *				//If the location is a sibling of the current location
-						 *				if(strcmp(locList->originalName,locIterator->originalName)==0 && strcmp(locList->name,locIterator-> name)!=0){
-						 *					//If the sibling is a final state for this level
-						 *					if(isTrueExpr(locList,seq_expr->expr)==1){
-						 *						breakCycle = 1;
-						 *						break;
-						 * 					}
-						 * 				}
-						 * 			}
-						 *			locList = locList->next;
-						 * 		}
-						 * }
-						 */
-						
-						/* 
-						 * Make a copy of each original transitions, and guard it 
-						 * with the level guard
-						 */
-						
-						//If location has no transitions from this location
-						if(locHasTransAtLevel(locIterator,id)==0){
-							if(breakCycle == 0){
 								struct transition* trans = locIterator->transitions;
-								//For each location P not satisfying Expr
 								while(trans!=NULL){
 									//printf("trans->original = %d\n",(int)trans->original);
 									if((int)(trans->original)==1){
@@ -6963,6 +6934,11 @@ struct phaver* levelSequence(struct phaver* H, struct feature* F, char* syncLabe
 										
 										//Add guard level == id
 										newTrans->when = addConditionToList(newTrans->when,levelGuard);
+										
+										struct condition* nonFMGuards = NULL;
+										
+										nonFMGuards = generateConjunctGuards(temp->conjunct);
+										newTrans->when = addConditionToList(newTrans->when,nonFMGuards);
 										
 										//Add transition to List of Transition
 										locIterator->transitions = addTransitionToList(locIterator->transitions, newTrans);	
@@ -6970,60 +6946,11 @@ struct phaver* levelSequence(struct phaver* H, struct feature* F, char* syncLabe
 									}
 									trans = trans->next;
 									//end of transition WHILE
-								}
+								}	
 							}
-						}
-						//end of ELSE
-					}
-				} else if(stateEvent) {
-					/* 
-					 * If the event is an @+(L) then a level change occurs from every location having transitions entering L and no normal transition is allowed at this level for those locatios
-					 * If the event is an @-(L) then a level change is applicable on L only and normal transitions are allowed for others
-					 */
-					
-					if(locHasTransAtLevel(locIterator,id)==0){
-						
-						dnf=seq_expr->expr->dnf;
-						
-						char* context = getLocationContext(dnf->conjunct);
-						
-						printf("============> STATE-EVENT-CONTEXT = [%s]\n",context);
-						if(id!=0 && (context!=NULL && strcmp(context,locIterator->name)!=0)){
-							int breakCycle = 0;
-							
-							/* 
-							 * Make a copy of each original transitions, and guard it 
-							 * with the level guard
-							 */
-							if(breakCycle == 0){
-								struct transition* trans = locIterator->transitions;
-								//For each location P not satisfying Expr
-								while(trans!=NULL){
-									//printf("trans->original = %d\n",(int)trans->original);
-									if((int)(trans->original)==1){
-										//Make a copy of each original Transition with level guard
-										struct transition *newTrans = NULL;
-										newTrans = addToTransitionList(newTrans,duplicateConditionList(trans->when),trans->sync,duplicateConditionList(trans->reset),trans->gotoLoc);
-										newTrans->next = NULL;
-										
-										//Add guard level == id
-										newTrans->when = addConditionToList(newTrans->when,levelGuard);
-										
-										//Add transition to List of Transition
-										locIterator->transitions = addTransitionToList(locIterator->transitions, newTrans);     
-										//end of IF
-									}
-									trans = trans->next;
-									//end of transition WHILE
-								}
-							}
-							//end of ELSE
 						}
 					}
 				}
-				
-				
-				
 				//Check the next location
 				locIterator = locIterator->next;
 				//end of location WHILE
